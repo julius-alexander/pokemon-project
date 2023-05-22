@@ -1,11 +1,11 @@
 # attributes will have the form:
 # pokemon_name = 'name', ID, moves, types, base_stats, exp, ivs, evs, nature, ability
-
 from random import randint
 from math import floor
 import mysql.connector
 
-# Enter appropriate information below
+# for testing and debug purposes:  random.seed(42)
+
 myPokeStatsDB = mysql.connector.connect(
     host="",
     user="",
@@ -42,22 +42,7 @@ Natures = {
     22: 'Sassy',
     23: 'Careful',
     24: 'Quirky'
-
 }
-
-
-class Moves:
-    def __init__(self, name):
-        self.name = name
-        self.type = 0
-        self.category = 0
-        self.power = 0
-        self.accuracy = 0
-        self.power_points = 0
-        self.effect = 0
-
-    def set_pp(self):
-        pass
 
 
 # res will be a list in the following format:
@@ -65,14 +50,19 @@ class Moves:
 class PokeMon:
 
     def __init__(self, res):
-        self.ivs =        [randint(0, 31), randint(0, 31), randint(0, 31), randint(0, 31), randint(0, 31), randint(0, 31)]
-        self.id =         res[0]
-        self.base_stats = [res[5], res[6], res[7], res[8], res[9], res[10]]
-        self.evs =        [0, 0, 0, 0, 0, 0]
-        self.nature =     randint(0, 24)
-        self.level =      100
-        self.moves =      [0, 0, 0, 0]
-        self.name =       res[1]
+        self.id =          res[0]
+        self.name =        res[1]
+        self.type1 =       res[2]
+        self.type2 =       res[3]
+        self.base_stats =  [res[5], res[6], res[7], res[8], res[9], res[10]]
+        self.total =       sum(self.base_stats)
+        self.generation =  res[11]
+        self.isLegendary = res[12]
+        self.ivs =         [randint(0, 31), randint(0, 31), randint(0, 31), randint(0, 31), randint(0, 31), randint(0, 31)]
+        self.evs =         [0, 0, 0, 0, 0, 0]
+        self.nature =      randint(0, 24)
+        # self.nature =      0
+        self.level =       100
 
         # Below are the main series' formulas for calculating the 6 major stats at each level
         self.hp =              (floor(0.01 * (2 * self.base_stats[0] + self.ivs[0]) * self.level) + self.level + 10)
@@ -82,15 +72,18 @@ class PokeMon:
         self.special_defense = (floor(0.01 * (2 * self.base_stats[4] + self.ivs[4]) * self.level) + 5)
         self.speed =           (floor(0.01 * (2 * self.base_stats[5] + self.ivs[5]) * self.level) + 5)
 
+        # applies +/- 10% on respective stats
+        self.set_stats(self.evs)
         self.set_nature_stats()
 
     def set_stats(self, evs):
-        self.hp =              (floor(0.01 * (2 * self.base_stats[0] + self.ivs[0] + floor(0.25 * evs[0])) * self.level) + self.level + 10)
-        self.attack =          (floor(0.01 * (2 * self.base_stats[1] + self.ivs[1] + floor(0.25 * evs[1])) * self.level) + 5)
-        self.defense =         (floor(0.01 * (2 * self.base_stats[2] + self.ivs[2] + floor(0.25 * evs[2])) * self.level) + 5)
-        self.special_attack =  (floor(0.01 * (2 * self.base_stats[3] + self.ivs[3] + floor(0.25 * evs[3])) * self.level) + 5)
-        self.special_defense = (floor(0.01 * (2 * self.base_stats[4] + self.ivs[4] + floor(0.25 * evs[4])) * self.level) + 5)
-        self.speed =           (floor(0.01 * (2 * self.base_stats[5] + self.ivs[5] + floor(0.25 * evs[5])) * self.level) + 5)
+        self.hp =              (floor(0.01 * self.level * (2 * self.base_stats[0] + self.ivs[0] + floor(0.25 * evs[0]))) + self.level + 10)
+        self.attack =          (floor(0.01 * self.level * (2 * self.base_stats[1] + self.ivs[1] + floor(0.25 * evs[1]))) + 5)
+        self.defense =         (floor(0.01 * self.level * (2 * self.base_stats[2] + self.ivs[2] + floor(0.25 * evs[2]))) + 5)
+        self.special_attack =  (floor(0.01 * self.level * (2 * self.base_stats[3] + self.ivs[3] + floor(0.25 * evs[3]))) + 5)
+        self.special_defense = (floor(0.01 * self.level * (2 * self.base_stats[4] + self.ivs[4] + floor(0.25 * evs[4]))) + 5)
+        self.speed =           (floor(0.01 * self.level * (2 * self.base_stats[5] + self.ivs[5] + floor(0.25 * evs[5]))) + 5)
+        self.total =           sum([self.hp, self.attack, self.defense, self.special_attack, self.special_defense, self.speed])
 
     def set_nature_stats(self):
         # Lonely, Brave, Adamant, Naughty: 1-4, respectively
@@ -161,19 +154,32 @@ class PokeMon:
     def set_ivs(self, x):
         self.ivs = x
 
+    def update_nature_stats(self, new_nature: int):
+        self.set_stats(self.evs)
+        if new_nature in [0, 6, 12, 18, 24]:
+            self.nature = new_nature
+            return
+        if new_nature < 0 or new_nature > 24:
+            return
+        elif 0 <= new_nature <= 24:
+            self.nature = new_nature
+            self.set_nature_stats()
+
+    def update_main_stats(self, updated_stat):
+        pass
+
     def __str__(self):
-        return f'\nPokeMon Name:  {self.name}\n' \
-               f'PokeDex Entry: {self.id:0>3}\n' \
-               f'LVL.    {self.level}\n' \
-               f'Nature: {Natures[self.nature]}\n\n' \
-               f'Stats:\n' \
-               f'HP:     {self.hp:0>3}  '\
-               f'SPD:    {self.speed:0>3}\n'\
-               f'ATK:    {self.attack:0>3}  '\
-               f'DEF:    {self.defense:0>3}\n' \
-               f'SP.ATK: {self.special_attack:0>3}  ' \
-               f'SP.DEF: {self.special_defense:0>3}\n'
+        return f'\nPokeMon Name:  {self.name} (Lv.{self.level})\n' \
+               f'Nature: {Natures[self.nature]}  Gender: M\n' \
+               f'PokeDex Entry: {self.id:0>3}\n\n' \
+               f'Stats (Total {self.total}):\n' \
+               f'HP:     {self.hp:0>3} ({self.ivs[0]:0>2})  '\
+               f'SPD:    {self.speed:0>3} ({self.ivs[5]:0>2})\n'\
+               f'ATK:    {self.attack:0>3} ({self.ivs[1]:0>2})  '\
+               f'DEF:    {self.defense:0>3} ({self.ivs[2]:0>2})\n' \
+               f'SP.ATK: {self.special_attack:0>3} ({self.ivs[3]:0>2})  ' \
+               f'SP.DEF: {self.special_defense:0>3} ({self.ivs[4]:0>2})\n'
 
 
-def update_poke_stats():
-    pass  # needs to have capabilities adjusting EVs and IVs -- maybe Natures too
+# pokemon = PokeMon((384, 'Rayquaza', 'Dragon', 'Flying', 680, 105, 150, 90, 150, 90, 95, 3, 'True'))
+# print(f'this is where: {pokemon}')
